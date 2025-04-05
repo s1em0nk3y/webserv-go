@@ -3,8 +3,10 @@ package jwt
 import (
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -15,7 +17,7 @@ import (
 func TestAuthenticateJWT(t *testing.T) {
 	signKey := "test"
 	validUser := "testuser"
-	authenticator := NewAuthenticator("HS256", signKey, &userStorageMocker{validUser})
+	authenticator := NewAuthenticator("HS256", signKey, &userStorageMocker{validUser: validUser})
 	testcases := []struct {
 		notSelfPath    bool
 		name           string
@@ -82,7 +84,7 @@ func TestAuthenticateJWT(t *testing.T) {
 			if !testcase.notSelfPath {
 				request = mux.SetURLVars(request, map[string]string{"id": testcase.claims.Username})
 			}
-			handler := authenticator.AuthenticateJWT(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			handler := authenticator.Authenticate(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusOK)
 				w.Write([]byte("passed"))
 			}))
@@ -94,13 +96,94 @@ func TestAuthenticateJWT(t *testing.T) {
 			if response.Code != testcase.expectedStatus {
 				t.Errorf("got status [%d] wanted [%d]", response.Code, testcase.expectedStatus)
 			}
+		})
+	}
+}
+
+func TestRegisterNewUser(t *testing.T) {
+	signKey := "test"
+	appWithValidStorage := NewAuthenticator("HS256", signKey, &userStorageMocker{err: nil})
+	appWithInvalidStorage := NewAuthenticator("HS256", signKey, &userStorageMocker{err: errors.New("err")})
+	testcases := []struct {
+		name           string
+		expectedStatus int
+		app            *AuthJWT
+		bodyData       io.Reader
+	}{
+		{
+			name:           "Valid use, valid storage, returns 200",
+			expectedStatus: 200,
+			bodyData:       strings.NewReader(`{"user":"testuser","password":"password"}`),
+			app:            appWithValidStorage,
+		},
+		{
+			name:           "Valid use, invalid storage, returns 500",
+			expectedStatus: 500,
+			bodyData:       strings.NewReader(`{"user":"testuser","password":"password"}`),
+			app:            appWithInvalidStorage,
+		},
+		{
+			name:           "Invalid data (non-json) in request",
+			expectedStatus: 400,
+			bodyData:       strings.NewReader(`{no`),
+			app:            appWithValidStorage,
+		},
+		{
+			name:           "Invalid data (json) in request",
+			expectedStatus: 400,
+			bodyData:       strings.NewReader(`{}`),
+			app:            appWithValidStorage,
+		},
+	}
+
+	for _, testcase := range testcases {
+		t.Run(testcase.name, func(t *testing.T) {
+			request, _ := http.NewRequest(http.MethodGet, "/", testcase.bodyData)
+			response := httptest.NewRecorder()
+			testcase.app.RegisterNewUser(response, request)
+			if response.Code != testcase.expectedStatus {
+				t.Errorf("got status [%d] wanted [%d]", response.Code, testcase.expectedStatus)
+			}
 
 		})
 	}
 }
 
+func TestLoginUser(t *testing.T) {
+	signKey := "test"
+	testcases := []struct {
+		name           string
+		app            *AuthJWT
+		bodyData       io.Reader
+		expectedStatus int
+	}{
+		{
+			name:           "Valid, returns 200 and token",
+			app:            NewAuthenticator("HS256", signKey, &userStorageMocker{ok: true, err: nil}),
+			bodyData:       strings.NewReader(`{"user":"testuser","password":"password"}`),
+			expectedStatus: 200,
+		},
+	}
+	for _, testcase := range testcases {
+		t.Run(testcase.name, func(t *testing.T) {
+			request, _ := http.NewRequest(http.MethodGet, "/", testcase.bodyData)
+			response := httptest.NewRecorder()
+			testcase.app.LoginUser(response, request)
+			if response.Code != testcase.expectedStatus {
+				t.Errorf("got status [%d] wanted [%d]", response.Code, testcase.expectedStatus)
+			}
+		})
+	}
+}
+
 type userStorageMocker struct {
+	ok        bool
+	err       error
 	validUser string
+}
+
+func (s *userStorageMocker) CreateUser(user, passwordHash string) error {
+	return s.err
 }
 
 func (s *userStorageMocker) ValidateUsername(username string) error {
@@ -108,4 +191,7 @@ func (s *userStorageMocker) ValidateUsername(username string) error {
 		return nil
 	}
 	return errors.New("err")
+}
+func (s *userStorageMocker) CheckCredents(user, passwordHash string) (bool, error) {
+	return s.ok, s.err
 }

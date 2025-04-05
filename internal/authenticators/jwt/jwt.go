@@ -1,17 +1,15 @@
 package jwt
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/mux"
 )
-
-type UserStorage interface {
-	ValidateUsername(username string) error
-}
 
 type AuthJWT struct {
 	signKey    []byte
@@ -23,7 +21,69 @@ func NewAuthenticator(signMethod string, signKey string, storage UserStorage) *A
 	return &AuthJWT{signKey: []byte(signKey), signMethod: signMethod, storage: storage}
 }
 
-func (a *AuthJWT) AuthenticateJWT(next http.Handler) http.Handler {
+func (a *AuthJWT) RegisterNewUser(w http.ResponseWriter, r *http.Request) {
+	registerUser := &registerUser{}
+	if err := json.NewDecoder(r.Body).Decode(registerUser); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("unable to decode user and password"))
+		return
+	}
+
+	if registerUser.Password == "" || registerUser.Username == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("username or password not provided"))
+	}
+
+	if err := a.storage.CreateUser(registerUser.Username, registerUser.Password); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("unable to create user due to"))
+		return
+	}
+}
+
+func (a *AuthJWT) LoginUser(w http.ResponseWriter, r *http.Request) {
+	loginUser := &loginUser{}
+	if err := json.NewDecoder(r.Body).Decode(loginUser); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("unable to decode user and password"))
+		return
+	}
+	if loginUser.Password == "" || loginUser.Username == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("username or password not provided"))
+		return
+	}
+	ok, err := a.storage.CheckCredents(loginUser.Username, loginUser.Password)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("some internal error occured"))
+		return
+	}
+
+	if !ok {
+		w.WriteHeader(http.StatusForbidden)
+		w.Write([]byte("cant logon"))
+		return
+	}
+
+	signedString, err := jwt.NewWithClaims(
+		jwt.GetSigningMethod(a.signMethod),
+		claims{
+			Username: loginUser.Username,
+			RegisteredClaims: jwt.RegisteredClaims{
+				ExpiresAt: jwt.NewNumericDate(time.Now()),
+			},
+		},
+	).SignedString(a.signKey)
+	if err != nil {
+		w.Write([]byte("some internal error occured"))
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	w.Write([]byte(signedString))
+}
+
+func (a *AuthJWT) Authenticate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		tokenStr := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
 		if len(tokenStr) == 0 {
