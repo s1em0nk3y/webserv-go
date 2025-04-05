@@ -1,6 +1,7 @@
 package jwt
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -12,7 +13,8 @@ import (
 
 func TestAuthenticateJWT(t *testing.T) {
 	signKey := "test"
-	authenticator := NewAuthenticator("HS256", signKey)
+	validUser := "testuser"
+	authenticator := NewAuthenticator("HS256", signKey, &userStorageMocker{validUser})
 	testcases := []struct {
 		name           string
 		expectedStatus int
@@ -26,19 +28,19 @@ func TestAuthenticateJWT(t *testing.T) {
 			expectedStatus: http.StatusOK,
 			body:           "passed",
 			signingMethod:  jwt.SigningMethodHS256,
-			claims:         claims{Username: "testuser"},
+			claims:         claims{Username: validUser},
 		},
 		{
 			name:           "Corrupt signing method, returns 401",
 			expectedStatus: 401,
 			signingMethod:  jwt.SigningMethodHS512,
-			claims:         claims{Username: "testuser"},
+			claims:         claims{Username: validUser},
 		},
 		{
 			name:           "Expired token, returns 401",
 			expectedStatus: 401,
 			signingMethod:  jwt.SigningMethodHS256,
-			claims: claims{Username: "testuser", RegisteredClaims: jwt.RegisteredClaims{
+			claims: claims{Username: validUser, RegisteredClaims: jwt.RegisteredClaims{
 				ExpiresAt: jwt.NewNumericDate(time.Now()),
 			}},
 		},
@@ -46,8 +48,14 @@ func TestAuthenticateJWT(t *testing.T) {
 			name:           "Missing Authorization header, returns 401",
 			expectedStatus: 401,
 			signingMethod:  jwt.SigningMethodHS256,
-			claims:         claims{Username: "testuser"},
+			claims:         claims{Username: validUser},
 			noHeader:       true,
+		},
+		{
+			name:           "User is not found in storage, returns 401",
+			expectedStatus: 401,
+			signingMethod:  jwt.SigningMethodHS256,
+			claims:         claims{Username: "not-found-user"},
 		},
 	}
 
@@ -76,4 +84,15 @@ func TestAuthenticateJWT(t *testing.T) {
 			}
 		})
 	}
+}
+
+type userStorageMocker struct {
+	validUser string
+}
+
+func (s *userStorageMocker) ValidateUsername(username string) error {
+	if s.validUser == username {
+		return nil
+	}
+	return errors.New("err")
 }

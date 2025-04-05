@@ -9,17 +9,17 @@ import (
 )
 
 type UserStorage interface {
-	ValidateUsername()
+	ValidateUsername(username string) error
 }
 
 type AuthJWT struct {
 	signKey    []byte
 	signMethod string
+	storage    UserStorage
 }
 
-func NewAuthenticator(signMethod string, signKey string) *AuthJWT {
-
-	return &AuthJWT{signKey: []byte(signKey), signMethod: signMethod}
+func NewAuthenticator(signMethod string, signKey string, storage UserStorage) *AuthJWT {
+	return &AuthJWT{signKey: []byte(signKey), signMethod: signMethod, storage: storage}
 }
 
 func (a *AuthJWT) AuthenticateJWT(next http.Handler) http.Handler {
@@ -30,27 +30,24 @@ func (a *AuthJWT) AuthenticateJWT(next http.Handler) http.Handler {
 			w.Write([]byte("Missing 'Authorization' Header"))
 			return
 		}
-		token, err := jwt.ParseWithClaims(
+		claims := &claims{}
+		if _, err := jwt.ParseWithClaims(
 			tokenStr,
-			&claims{},
+			claims,
 			func(t *jwt.Token) (interface{}, error) {
 				if t.Method.Alg() != a.signMethod {
 					return nil, fmt.Errorf("unexpected algorithm %s, wanted %s", t.Method.Alg(), a.signMethod)
 				}
 				return a.signKey, nil
 			},
-		)
-
-		if err != nil {
+		); err != nil {
 			w.WriteHeader(http.StatusUnauthorized)
 			w.Write([]byte("cant verify token"))
 			return
 		}
-
-		if !token.Valid {
+		if a.storage.ValidateUsername(claims.Username) != nil {
 			w.WriteHeader(http.StatusUnauthorized)
-			w.Write([]byte("token is not valid"))
-			return
+			w.Write([]byte(fmt.Sprintf("user [%s] not found", claims.Username)))
 		}
 		next.ServeHTTP(w, r)
 	})
