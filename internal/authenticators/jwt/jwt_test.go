@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/gorilla/mux"
 )
 
 func TestAuthenticateJWT(t *testing.T) {
@@ -16,6 +17,7 @@ func TestAuthenticateJWT(t *testing.T) {
 	validUser := "testuser"
 	authenticator := NewAuthenticator("HS256", signKey, &userStorageMocker{validUser})
 	testcases := []struct {
+		notSelfPath    bool
 		name           string
 		expectedStatus int
 		body           string
@@ -57,6 +59,13 @@ func TestAuthenticateJWT(t *testing.T) {
 			signingMethod:  jwt.SigningMethodHS256,
 			claims:         claims{Username: "not-found-user"},
 		},
+		{
+			name:           "User tries to get other user's data, returns 403",
+			expectedStatus: 403,
+			signingMethod:  jwt.SigningMethodHS256,
+			claims:         claims{Username: "not-found-user"},
+			notSelfPath:    true,
+		},
 	}
 
 	for _, testcase := range testcases {
@@ -70,6 +79,9 @@ func TestAuthenticateJWT(t *testing.T) {
 			if !testcase.noHeader {
 				request.Header.Add("Authorization", fmt.Sprintf("Bearer %s", signedToken))
 			}
+			if !testcase.notSelfPath {
+				request = mux.SetURLVars(request, map[string]string{"id": testcase.claims.Username})
+			}
 			handler := authenticator.AuthenticateJWT(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusOK)
 				w.Write([]byte("passed"))
@@ -82,6 +94,7 @@ func TestAuthenticateJWT(t *testing.T) {
 			if response.Code != testcase.expectedStatus {
 				t.Errorf("got status [%d] wanted [%d]", response.Code, testcase.expectedStatus)
 			}
+
 		})
 	}
 }

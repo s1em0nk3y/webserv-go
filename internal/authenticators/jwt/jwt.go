@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/gorilla/mux"
 )
 
 type UserStorage interface {
@@ -45,9 +46,14 @@ func (a *AuthJWT) AuthenticateJWT(next http.Handler) http.Handler {
 			w.Write([]byte("cant verify token"))
 			return
 		}
+		if userIDFromRoute := mux.Vars(r)["id"]; claims.Username != userIDFromRoute {
+			w.WriteHeader(http.StatusForbidden)
+			w.Write([]byte("you cannot view other user's paths"))
+		}
 		if a.storage.ValidateUsername(claims.Username) != nil {
 			w.WriteHeader(http.StatusUnauthorized)
 			w.Write([]byte(fmt.Sprintf("user [%s] not found", claims.Username)))
+			return
 		}
 		next.ServeHTTP(w, r)
 	})
