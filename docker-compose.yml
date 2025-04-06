@@ -11,6 +11,9 @@ services:
       build:
         context: .
         dockerfile: build/Dockerfile
+      environment:
+        POSTGRES_PASSWORD: "${POSTGRES_PASSWORD?Missing postgre password}"
+        POSTGRES_HOST: "database"
       ports:
         - "4000:4000"
 volumes:
