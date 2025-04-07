@@ -1,6 +1,8 @@
 package jwt
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -33,8 +35,8 @@ func (a *AuthJWT) RegisterNewUser(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("username or password not provided"))
 	}
-
-	if err := a.storage.CreateUser(registerUser.Username, registerUser.Password); err != nil {
+	hash := sha256.Sum256([]byte(registerUser.Password))
+	if err := a.storage.CreateUser(registerUser.Username, hex.EncodeToString(hash[:])); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("unable to create user due to"))
 		return
@@ -53,7 +55,8 @@ func (a *AuthJWT) LoginUser(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("username or password not provided"))
 		return
 	}
-	ok, err := a.storage.CheckCredents(loginUser.Username, loginUser.Password)
+	hash := sha256.Sum256([]byte(loginUser.Password))
+	ok, err := a.storage.CheckCredents(loginUser.Username, hex.EncodeToString(hash[:]))
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("some internal error occured"))
@@ -110,6 +113,7 @@ func (a *AuthJWT) Authenticate(next http.Handler) http.Handler {
 			w.WriteHeader(http.StatusForbidden)
 			w.Write([]byte("you cannot view other user's paths"))
 		}
+
 		if a.storage.ValidateUsername(claims.Username) != nil {
 			w.WriteHeader(http.StatusUnauthorized)
 			w.Write([]byte(fmt.Sprintf("user [%s] not found", claims.Username)))
