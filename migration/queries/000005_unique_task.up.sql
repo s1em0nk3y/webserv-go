@@ -1,0 +1,1 @@
+ALTER TABLE TaskLogs ADD CONSTRAINT tasklogs_user_task_uniq UNIQUE (user_id, task_id);

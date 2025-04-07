@@ -44,7 +44,7 @@ func main() {
 	if err != nil {
 		log.Fatal().Err(err).Msg("cant init migration instance")
 	}
-	if err := m.Migrate(4); err != nil && !errors.Is(err, migrate.ErrNoChange) {
+	if err := m.Migrate(5); err != nil && !errors.Is(err, migrate.ErrNoChange) {
 		log.Fatal().Err(err).Msg("cant migrate due to err")
 	}
 }

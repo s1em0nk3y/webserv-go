@@ -1,0 +1,1 @@
+ALTER TABLE TaskLogs DROP CONSTRAINT tasklogs_user_task_uniq;
