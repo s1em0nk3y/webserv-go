@@ -83,6 +83,8 @@ func TestAuthenticateJWT(t *testing.T) {
 			}
 			if !testcase.notSelfPath {
 				request = mux.SetURLVars(request, map[string]string{"id": testcase.claims.Username})
+			} else {
+				request = mux.SetURLVars(request, map[string]string{"id": fmt.Sprintf("non%s", testcase.claims.Username)})
 			}
 			handler := authenticator.Authenticate(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusOK)

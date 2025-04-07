@@ -109,7 +109,7 @@ func (a *AuthJWT) Authenticate(next http.Handler) http.Handler {
 			w.Write([]byte("cant verify token"))
 			return
 		}
-		if userIDFromRoute := mux.Vars(r)["id"]; claims.Username != userIDFromRoute {
+		if userIDFromRoute := mux.Vars(r)["id"]; userIDFromRoute != "" && claims.Username != userIDFromRoute {
 			w.WriteHeader(http.StatusForbidden)
 			w.Write([]byte("you cannot view other user's paths"))
 		}
