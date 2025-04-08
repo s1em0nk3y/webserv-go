@@ -2,7 +2,7 @@ package db
 
 import "github.com/s1em0nk3y/webserv-go/internal/app"
 
-func (db *DB) CompleteUserTask(username string, task *app.TaskData) (award int, err error) {
+func (db *DB) CompleteUserTask(username string, task *app.TaskData) (award float64, err error) {
 	award = -1
 	err = db.db.QueryRow(`
 		WITH messengerid as (

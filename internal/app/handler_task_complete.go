@@ -9,7 +9,7 @@ import (
 )
 
 type TaskCompleter interface {
-	CompleteUserTask(username string, task *TaskData) (award int, err error)
+	CompleteUserTask(username string, task *TaskData) (award float64, err error)
 }
 
 type TaskData struct {
@@ -38,5 +38,5 @@ func (a *App) CompleteTask(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("unable to complete task"))
 		return
 	}
-	w.Write([]byte(fmt.Sprintf("%d", award)))
+	w.Write([]byte(fmt.Sprintf("%f", award)))
 }
