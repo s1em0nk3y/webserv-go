@@ -14,7 +14,9 @@ services:
       environment:
         POSTGRES_PASSWORD: "${POSTGRES_PASSWORD?Missing postgre password}"
         POSTGRES_HOST: "database"
+        JWT_SIGN_KEY: "${JWT_SIGN_KEY?Missing jwt sign key}"
       ports:
         - "4000:4000"
+        - "8080:8080"
 volumes:
   postgres_data:

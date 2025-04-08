@@ -12,7 +12,7 @@ type ReferralStorage interface {
 }
 
 // POST /users/:id/referrer; should contain other user name
-func (a *App) AddReferral(w http.ResponseWriter, r *http.Request) {
+func (a *App) addReferral(w http.ResponseWriter, r *http.Request) {
 	username := mux.Vars(r)["id"]
 	if username == "" {
 		w.WriteHeader(http.StatusBadRequest)

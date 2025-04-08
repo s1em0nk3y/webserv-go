@@ -20,7 +20,7 @@ type TaskData struct {
 
 // POST /users/:id/task/complete
 // should contain json like: {"messenger": "Telegram", "action": "like", "task_data": "some_post_id"}
-func (a *App) CompleteTask(w http.ResponseWriter, r *http.Request) {
+func (a *App) completeTask(w http.ResponseWriter, r *http.Request) {
 	username := mux.Vars(r)["id"]
 	if username == "" {
 		w.WriteHeader(http.StatusBadRequest)

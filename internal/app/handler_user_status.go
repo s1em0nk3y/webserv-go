@@ -17,7 +17,7 @@ type UserStatus struct {
 	Score              float64 `json:"score"`
 }
 
-func (a *App) GetUserStatus(w http.ResponseWriter, r *http.Request) {
+func (a *App) getUserStatus(w http.ResponseWriter, r *http.Request) {
 	username := mux.Vars(r)["id"]
 	if username == "" {
 		w.WriteHeader(http.StatusBadRequest)

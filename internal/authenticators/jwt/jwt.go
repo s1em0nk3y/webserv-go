@@ -74,7 +74,7 @@ func (a *AuthJWT) LoginUser(w http.ResponseWriter, r *http.Request) {
 		claims{
 			Username: loginUser.Username,
 			RegisteredClaims: jwt.RegisteredClaims{
-				ExpiresAt: jwt.NewNumericDate(time.Now()),
+				ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
 			},
 		},
 	).SignedString(a.signKey)
@@ -112,6 +112,7 @@ func (a *AuthJWT) Authenticate(next http.Handler) http.Handler {
 		if userIDFromRoute := mux.Vars(r)["id"]; userIDFromRoute != "" && claims.Username != userIDFromRoute {
 			w.WriteHeader(http.StatusForbidden)
 			w.Write([]byte("you cannot view other user's paths"))
+			return
 		}
 
 		if a.storage.ValidateUsername(claims.Username) != nil {

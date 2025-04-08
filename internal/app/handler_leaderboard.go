@@ -14,7 +14,7 @@ type LeaderBoard []struct {
 	Score float64 `json:"score"`
 }
 
-func (a *App) GetLeaderBoard(w http.ResponseWriter, r *http.Request) {
+func (a *App) getLeaderBoard(w http.ResponseWriter, r *http.Request) {
 	leaderBoard, err := a.LeaderBoardGetter.GetLeaderBoard()
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
